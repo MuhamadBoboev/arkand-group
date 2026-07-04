@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    background: var(--paper);
+    color: var(--warm-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    /* Нет горизонтального скролла ни на одной ширине (§5.2) */
+    overflow-x: hidden;
+  }
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* Табличные цифры для сумм (§4.4) */
+  .font-num {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.animate-in {
+  animation: slideup 0.18s ease-out;
+}
+@keyframes slideup {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}

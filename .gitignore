@@ -1,0 +1,37 @@
+# ---------- OS / editor ----------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# ---------- Node / frontend ----------
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+coverage/
+*.tsbuildinfo
+frontend/.env
+frontend/.env.local
+
+# ---------- Python / backend ----------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+backend/.env
+*.sqlite3
+*.db
+
+# ---------- Logs / misc ----------
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.env
