@@ -24,10 +24,11 @@ async def lifespan(app: FastAPI):
     # авто-сид демо-данных при первом старте (для деплоя) — идемпотентно
     if settings.seed_on_start:
         try:
-            from app.seed import ensure_demo_users, run as seed_run
+            from app.seed import ensure_demo_data, ensure_demo_users, run as seed_run
 
             seed_run()
             ensure_demo_users()  # идемпотентная дозаливка недостающих демо-пользователей
+            ensure_demo_data()   # насыщение демо-данными всех систем (по пустым категориям)
         except Exception as exc:  # сид не должен ронять старт
             print("seed_on_start failed:", exc)
     await init_publisher(asyncio.get_running_loop())

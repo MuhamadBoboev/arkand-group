@@ -7,27 +7,62 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from app.core.constants import Business, MoneyKind, MoneyStatus, OwnerType, StockStatus
+from app.core.constants import (
+    Business,
+    DebtStatus,
+    IncomeStage,
+    MoneyKind,
+    MoneyStatus,
+    OrderStatus,
+    OwnerType,
+    StockStatus,
+)
 from app.core.permissions import ROLE_DEFS, all_permission_tuples
 from app.core.security import hash_password
 from app.db.base import Base, SessionLocal, engine, now_utc
 from app.db.models import (
     BusinessEntity,
+    CalendarEvent,
+    CapacityRecord,
     CashRegister,
+    Client,
     ConstructionObject,
+    Contract,
     Counterparty,
+    Debt,
     Employee,
     Estimate,
+    Fraction,
+    FractionOutput,
+    FuelConsumption,
+    InspectionAct,
+    InspectionPlan,
+    Limit,
     MoneyMovement,
     Nomenclature,
+    Order,
     Owner,
     Permission,
+    ProductionShift,
+    Project,
+    Purchase,
+    QualityPass,
+    Receipt,
     Recipe,
+    Remark,
     Role,
     RolePermission,
+    Salary,
+    Stage,
+    Supplier,
+    SupervisionObject,
+    SupervisionPayment,
+    SupplyRequest,
+    Task,
     Unit,
     User,
     UserRole,
+    Vehicle,
     WarehouseStock,
 )
 
@@ -244,6 +279,187 @@ def ensure_demo_users() -> None:
         db.close()
 
 
+def ensure_demo_data() -> None:
+    """Идемпотентно насыщает демо-данными КАЖДУЮ систему (добавляет только пустые категории)."""
+    db = SessionLocal()
+    try:
+        def uid(phone: str) -> str | None:
+            u = db.query(User).filter(User.phone == phone).first()
+            return u.id if u else None
+
+        def cash_of(business_id: str) -> CashRegister | None:
+            return db.query(CashRegister).filter(CashRegister.business_id == business_id).first()
+
+        def nom(name: str) -> str | None:
+            n = db.query(Nomenclature).filter(Nomenclature.name == name).first()
+            return n.id if n else None
+
+        sohib = uid("+992900000001")
+        cashier = uid("+992900000010")
+        operator = uid("+992900000014")
+        supplier_u = uid("+992900000011")
+        architect = uid("+992900000017")
+        foreman = uid("+992900000018")
+        auditor = uid("+992900000012")
+        chief = uid("+992900000013")
+
+        # Кассы для всех бизнесов (для аналитики по каждому)
+        biz_cash = {}
+        for bid, nm in [(Business.ZASTROYSHCHIK, "Касса застройщика"), (Business.PROEKTNAYA, "Касса проектной"),
+                        (Business.BETON, "Касса бетонного завода"), (Business.SHCHEBEN, "Касса щебёночного завода"),
+                        (Business.SUPPLY, "Касса снабжения"), (Business.FINANCE, "Главная касса")]:
+            c = cash_of(bid)
+            if c is None:
+                c = CashRegister(name=nm, business_id=bid, created_by=sohib)
+                db.add(c)
+                db.flush()
+            biz_cash[bid] = c
+
+        # ---------- ФИНАНСЫ: движения по всем бизнесам (для дашборда) ----------
+        if db.query(MoneyMovement).filter(MoneyMovement.article == "Оплата за бетон").count() == 0:
+            demo_mv = [
+                (Business.BETON, MoneyKind.INCOME, "120000", "Оплата за бетон", IncomeStage.REVENUE),
+                (Business.BETON, MoneyKind.EXPENSE, "45000", "Закупка цемента", None),
+                (Business.SHCHEBEN, MoneyKind.INCOME, "80000", "Оплата за щебень", IncomeStage.REVENUE),
+                (Business.SHCHEBEN, MoneyKind.EXPENSE, "30000", "Солярка и электроэнергия", None),
+                (Business.PROEKTNAYA, MoneyKind.INCOME, "60000", "Аванс по договору", IncomeStage.ADVANCE),
+                (Business.PROEKTNAYA, MoneyKind.INCOME, "40000", "Оплата за проект", IncomeStage.REVENUE),
+                (Business.PROEKTNAYA, MoneyKind.EXPENSE, "15000", "Зарплата проектировщиков", None),
+                (Business.ZASTROYSHCHIK, MoneyKind.INCOME, "200000", "Продажа квартиры", IncomeStage.REVENUE),
+            ]
+            for bid, kind, amt, art, stage in demo_mv:
+                db.add(MoneyMovement(cash_id=biz_cash[bid].id, business_id=bid, kind=kind, status=MoneyStatus.IN_CASH,
+                                     income_stage=stage, amount=Decimal(amt), article=art, created_by=sohib))
+
+        # ---------- ФИНАНСЫ: зарплаты и долги ----------
+        if db.query(Salary).count() == 0:
+            for emp in db.query(Employee).limit(4).all():
+                db.add(Salary(employee_id=emp.id, period="2026-06", accrued=emp.salary or Decimal("4000"),
+                              paid=Decimal("0"), created_by=chief))
+        if db.query(Debt).count() == 0:
+            db.add(Debt(from_business=Business.BETON, to_business=Business.SHCHEBEN, amount=Decimal("25000"),
+                        status=DebtStatus.OPEN, basis_ref="Передача щебня", created_by=chief))
+            db.add(Debt(from_business=Business.ZASTROYSHCHIK, to_business=Business.SUPPLY, amount=Decimal("18000"),
+                        status=DebtStatus.PARTIAL, paid_amount=Decimal("8000"), created_by=chief))
+
+        # ---------- ЗАСТРОЙЩИК: объекты ----------
+        if db.query(ConstructionObject).count() <= 1:
+            for nm, addr, city in [("ЖК «Арканд-2»", "ул. Айни 45", "Душанбе"),
+                                   ("ТЦ «Пойтахт»", "пр. Сомони 12", "Душанбе"),
+                                   ("Коттеджный посёлок «Сад»", "с. Гиссар", "Гиссар")]:
+                o = ConstructionObject(business_id=Business.ZASTROYSHCHIK, name=nm, address=addr, city=city, created_by=foreman)
+                db.add(o)
+                db.flush()
+                db.add(Estimate(object_id=o.id, plan_amount=Decimal("1500000"), fact_amount=Decimal("420000"),
+                                plan_json={"работы": "фундамент, каркас, отделка"}, created_by=foreman))
+
+        # ---------- ПРОЕКТНАЯ: клиенты, договоры, проекты, надзор ----------
+        if db.query(Client).count() == 0:
+            clients = []
+            for fn, ph in [("Рахимов Далер", "+992900010001"), ("Собирова Нигина", "+992900010002"),
+                           ("ООО «СтройИнвест»", "+992900010003")]:
+                cl = Client(full_name=fn, phone=ph, registered=True, created_by=architect)
+                db.add(cl)
+                db.flush()
+                clients.append(cl)
+            for cl, amount in zip(clients, ["350000", "780000", "1200000"]):
+                db.add(Contract(client_id=cl.id, amount=Decimal(amount), status="active",
+                                schedule_json={"advance": 50, "mid": 30, "final": 20}, created_by=architect))
+            for title in ["Индивидуальный жилой дом", "Офисное здание", "Реконструкция цеха"]:
+                p = Project(title=title, status="active", created_by=architect)
+                db.add(p)
+                db.flush()
+                for i, stg in enumerate(["Генплан", "Эскиз", "Конструктив", "Сдача"]):
+                    db.add(Stage(project_id=p.id, name=stg, order_index=i,
+                                 status="done" if i == 0 else "pending", created_by=architect))
+            for nm, fee in [("Надзор: ЖК «Восток»", "3000"), ("Надзор: Школа №25", "2500")]:
+                so = SupervisionObject(name=nm, manager_user_id=architect, monthly_fee=Decimal(fee), created_by=architect)
+                db.add(so)
+                db.flush()
+                db.add(SupervisionPayment(supervision_object_id=so.id, period="2026-06", amount=Decimal(fee), collected_by=architect, created_by=architect))
+
+        # ---------- БЕТОННЫЙ ЗАВОД: рецептуры, заказы, качество, техника ----------
+        if db.query(Recipe).filter(Recipe.business_id == Business.BETON).count() <= 1:
+            for mark in ["M200", "M400"]:
+                db.add(Recipe(business_id=Business.BETON, mark=mark, frozen_json={"components": [
+                    {"nomenclature_id": nom("Цемент М400"), "qty": 0.32},
+                    {"nomenclature_id": nom("Щебень 5-20"), "qty": 0.85},
+                    {"nomenclature_id": nom("Песок"), "qty": 0.55},
+                ]}, created_by=operator))
+        if db.query(Order).filter(Order.business_id == Business.BETON).count() == 0:
+            for mark, vol, amt, st in [("M300", 12, 42000, OrderStatus.SHIPPED), ("M200", 8, 24000, OrderStatus.NEW),
+                                       ("M400", 20, 90000, OrderStatus.IN_PRODUCTION)]:
+                db.add(Order(business_id=Business.BETON, mark=mark, volume=Decimal(vol), amount=Decimal(amt),
+                             status=st, payment_status="оплачено", created_by=operator))
+        if db.query(QualityPass).count() == 0:
+            db.add(QualityPass(business_id=Business.BETON, sample_ref="Партия №128", test_day=7, result="28.4 МПа", passed=True, created_by=operator))
+            db.add(QualityPass(business_id=Business.BETON, sample_ref="Партия №128", test_day=28, result="М300 соответствует", passed=True, created_by=operator))
+        if db.query(Vehicle).filter(Vehicle.business_id == Business.BETON).count() == 0:
+            db.add(Vehicle(business_id=Business.BETON, name="Миксер №1", kind="миксер", plate="0101 AA", created_by=operator))
+            db.add(Vehicle(business_id=Business.BETON, name="Миксер №2", kind="миксер", plate="0102 AA", created_by=operator))
+
+        # ---------- ЩЕБЁНОЧНЫЙ ЗАВОД: фракции, смены, выпуск, солярка, мощность, заказы ----------
+        if db.query(Fraction).count() == 0:
+            fr_ids = {}
+            for nm in ["Песок", "Щебень 5-20", "Щебень 20-40", "Отсев", "Пудра"]:
+                f = Fraction(business_id=Business.SHCHEBEN, name=nm, created_by=operator)
+                db.add(f)
+                db.flush()
+                fr_ids[nm] = f.id
+            shift = ProductionShift(business_id=Business.SHCHEBEN, note="Дневная смена", created_by=operator)
+            db.add(shift)
+            db.flush()
+            for nm, qty in [("Щебень 5-20", 120), ("Щебень 20-40", 90), ("Песок", 60)]:
+                db.add(FractionOutput(shift_id=shift.id, fraction_id=fr_ids[nm], qty=Decimal(qty), created_by=operator))
+            db.add(FuelConsumption(business_id=Business.SHCHEBEN, liters=Decimal("180"), norm_liters=Decimal("170"), created_by=operator))
+            db.add(CapacityRecord(business_id=Business.SHCHEBEN, period="2026-06", output_qty=Decimal("2700"), cost_per_unit=Decimal("42.50"), created_by=operator))
+            for mark, vol, amt in [("Щебень 5-20", 30, 21000), ("Песок", 25, 12500)]:
+                db.add(Order(business_id=Business.SHCHEBEN, mark=mark, volume=Decimal(vol), amount=Decimal(amt), status=OrderStatus.NEW, created_by=operator))
+
+        # ---------- СНАБЖЕНИЕ: поставщики, заявки, закупки, лимиты, оприходование ----------
+        if db.query(SupplyRequest).count() == 0:
+            cp = db.query(Counterparty).filter(Counterparty.type == "поставщик").first()
+            if cp:
+                db.add(Supplier(counterparty_id=cp.id, rating=5, note="Надёжный поставщик", created_by=supplier_u))
+            db.add(Limit(business_id=None, amount=Decimal("50000"), resource="purchase", set_by=sohib, created_by=sohib))
+            for bid, items in [(Business.BETON, [{"name": "Цемент М400", "qty": 20}]),
+                               (Business.ZASTROYSHCHIK, [{"name": "Кирпич", "qty": 5000}]),
+                               (Business.SHCHEBEN, [{"name": "Запчасти дробилки", "qty": 3}])]:
+                db.add(SupplyRequest(business_id=bid, items_json=items, status="new", created_by=supplier_u))
+            db.add(Purchase(business_id=Business.BETON, amount=Decimal("35000"), status="approved", limit_ok=True, created_by=supplier_u))
+            db.add(Purchase(business_id=Business.ZASTROYSHCHIK, amount=Decimal("90000"), status="pending_approval", limit_ok=False, created_by=supplier_u))
+            cement_id = nom("Цемент М400")
+            if cement_id:
+                db.add(Receipt(business_id=Business.BETON, nomenclature_id=cement_id, qty=Decimal("20"), created_by=supplier_u))
+
+        # ---------- ВЛАДЕЛЬЦЫ: задачи, календарь ----------
+        if db.query(Task).count() == 0:
+            for at, title in [(operator, "Подготовить отчёт по выпуску бетона"),
+                              (supplier_u, "Согласовать цену на цемент"),
+                              (foreman, "Проверить готовность фундамента ЖК-2"),
+                              (chief, "Закрыть период за июнь")]:
+                db.add(Task(assigned_to=at, assigned_by=sohib, title=title, status="open", created_by=sohib))
+        if db.query(CalendarEvent).count() == 0:
+            for t, title in [("встреча", "Совещание владельцев"), ("дедлайн", "Сдача проекта «Офис»"), ("встреча", "Приёмка бетона на объекте")]:
+                db.add(CalendarEvent(type=t, title=title, owner_scope="holding", created_by=sohib))
+
+        # ---------- ОТДЕЛ ПРОВЕРКИ: планы, акты, замечания ----------
+        if db.query(InspectionAct).count() == 0:
+            db.add(InspectionPlan(title="Плановая проверка касс за июнь", planned=True, created_by=auditor))
+            db.add(InspectionPlan(title="Внеплановая проверка склада бетона", planned=False, created_by=auditor))
+            act = InspectionAct(title="Сверка кассы застройщика", business_id=Business.ZASTROYSHCHIK, status="open",
+                                summary="Расхождений не выявлено", created_by=auditor)
+            db.add(act)
+            db.flush()
+            db.add(Remark(act_id=act.id, text="Рекомендуется чаще проводить инкассацию", status="open", created_by=auditor))
+
+        db.commit()
+        print("[OK] Demo data ensured for all systems.")
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
     run()
     ensure_demo_users()
+    ensure_demo_data()
