@@ -43,6 +43,11 @@ def list_cash(principal: Principal = Depends(get_principal), db: Session = Depen
 
 @router.post("/cash", status_code=201)
 def create_cash(data: CashIn, principal: Principal = Depends(get_principal), db: Session = Depends(get_db)):
+    # Создание кассы — управленческое действие: требует широкого доступа (бухгалтерия/владельцы),
+    # а не scope own_records (он даёт кассиру лишь операции в СВОЕЙ кассе, не создание новых).
+    scopes = principal._matching_scopes(Resource.CASH, Action.CREATE)
+    if not (principal.is_owner or "all" in scopes or "own_business" in scopes):
+        raise forbidden("Создание кассы доступно бухгалтерии и владельцам")
     principal.require(Resource.CASH, Action.CREATE, business_id=data.business_id)
     c = CashRegister(**data.model_dump(), created_by=principal.id)
     db.add(c)

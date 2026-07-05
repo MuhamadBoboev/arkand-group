@@ -1,5 +1,6 @@
 import { Suspense, lazy, useMemo, useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
+import { LuEllipsis, LuLogOut } from "react-icons/lu";
 import { useAuth } from "@/shared/model/auth.store";
 import { api } from "@/shared/api/client";
 import { queryClient } from "@/shared/api/query";
@@ -7,7 +8,7 @@ import { cn } from "@/shared/lib/cn";
 import { TableSkeleton } from "@/shared/ui";
 import { NAV } from "./nav";
 
-// Prefetch данных вероятного следующего экрана при наведении (§6.1)
+// Prefetch данных вероятного следующего экрана при наведении
 const PREFETCH: Record<string, { key: unknown[]; path: string }> = {
   "/finance": { key: ["finance", "cash"], path: "/api/finance/cash" },
   "/inkassaciya": { key: ["inkassaciya"], path: "/api/inkassaciya" },
@@ -18,7 +19,7 @@ function prefetch(to: string) {
   if (p) queryClient.prefetchQuery({ queryKey: p.key, queryFn: () => api.get(p.path) });
 }
 
-// Code-splitting по маршрутам (§6.4) — ленивая загрузка страниц
+// Code-splitting по маршрутам — ленивая загрузка страниц
 const DashboardPage = lazy(() => import("@/pages/dashboard/DashboardPage"));
 const FinancePage = lazy(() => import("@/pages/finance/FinancePage"));
 const InkassaciyaPage = lazy(() => import("@/pages/inkassaciya/InkassaciyaPage"));
@@ -65,7 +66,7 @@ export function AppShell() {
         <nav className="mt-2 flex flex-1 flex-col gap-1 overflow-y-auto">
           {items.map((n) => (
             <NavLink key={n.to} to={n.to} end={n.to === "/"} className={linkCls} onMouseEnter={() => prefetch(n.to)}>
-              <span className="text-lg">{n.icon}</span>
+              <n.icon size={18} className="shrink-0" />
               {n.label}
             </NavLink>
           ))}
@@ -114,18 +115,18 @@ export function AppShell() {
             to={n.to}
             end={n.to === "/"}
             className={({ isActive }) =>
-              cn("flex min-h-[56px] flex-col items-center justify-center gap-0.5 text-[10px]", isActive ? "text-brand" : "text-neutral-500")
+              cn("flex min-h-[56px] flex-col items-center justify-center gap-1 text-[10px]", isActive ? "text-brand" : "text-neutral-500")
             }
           >
-            <span className="text-xl">{n.icon}</span>
+            <n.icon size={20} />
             {n.label}
           </NavLink>
         ))}
         <button
           onClick={() => setMoreOpen(true)}
-          className="flex min-h-[56px] flex-col items-center justify-center gap-0.5 text-[10px] text-neutral-500"
+          className="flex min-h-[56px] flex-col items-center justify-center gap-1 text-[10px] text-neutral-500"
         >
-          <span className="text-xl">⋯</span>
+          <LuEllipsis size={20} />
           Ещё
         </button>
       </nav>
@@ -146,9 +147,9 @@ export function AppShell() {
                   key={n.to}
                   to={n.to}
                   onClick={() => setMoreOpen(false)}
-                  className="flex flex-col items-center gap-1 rounded-md p-3 text-center text-xs text-neutral-600 hover:bg-neutral-100"
+                  className="flex flex-col items-center gap-1.5 rounded-md p-3 text-center text-xs text-neutral-600 hover:bg-neutral-100"
                 >
-                  <span className="text-2xl">{n.icon}</span>
+                  <n.icon size={22} />
                   {n.label}
                 </NavLink>
               ))}
@@ -171,8 +172,8 @@ function UserBox() {
         <div className="truncate text-sm font-medium text-ink">{user?.full_name}</div>
         <div className="truncate text-[11px] text-neutral-500">{user?.owner_type ?? user?.roles?.[0] ?? "сотрудник"}</div>
       </div>
-      <button onClick={logout} className="shrink-0 rounded-md px-2 py-1 text-xs text-status-error hover:bg-status-error/10">
-        Выход
+      <button onClick={logout} className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-status-error hover:bg-status-error/10">
+        <LuLogOut size={14} /> Выход
       </button>
     </div>
   );

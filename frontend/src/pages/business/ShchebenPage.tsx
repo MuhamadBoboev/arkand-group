@@ -16,7 +16,7 @@ export default function ShchebenPage() {
 
   return (
     <div>
-      <PageTitle title="Щебёночный завод" subtitle="Фракции, смены, выпуск, заказы, отгрузка (§9.4)" />
+      <PageTitle title="Щебёночный завод" subtitle="Фракции, смены, выпуск, заказы и отгрузка" />
       <div className="mb-4">
         <Tabs value={tab} onChange={setTab} items={[
           { key: "fractions", label: "Фракции" }, { key: "shifts", label: "Смены" }, { key: "outputs", label: "Выпуск" }, { key: "orders", label: "Заказы" },

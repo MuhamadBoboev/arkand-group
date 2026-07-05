@@ -13,7 +13,7 @@ export default function ZastroyshchikPage() {
 
   return (
     <div>
-      <PageTitle title="Застройщик" subtitle="Объекты, сметы (заморожены §7.3), склад, прибыль" />
+      <PageTitle title="Застройщик" subtitle="Объекты, сметы, склад и прибыль по объектам" />
       <div className="mb-4">
         <Tabs value={tab} onChange={setTab} items={[
           { key: "objects", label: "Объекты" }, { key: "estimates", label: "Сметы" }, { key: "stock", label: "Склад" },

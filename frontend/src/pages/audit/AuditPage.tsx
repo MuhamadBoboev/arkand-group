@@ -11,7 +11,7 @@ export default function AuditPage() {
 
   return (
     <div>
-      <PageTitle title="Отдел проверки" subtitle="Только чтение по системам; акты и эскалация троим (§9.8)" />
+      <PageTitle title="Отдел проверки" subtitle="Аудит систем в режиме чтения, акты и эскалация" />
       <div className="mb-4">
         <Tabs value={tab} onChange={setTab} items={[
           { key: "log", label: "Аудит-лог" }, { key: "reconcile", label: "Сверка касс" }, { key: "acts", label: "Акты" },

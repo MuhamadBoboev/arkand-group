@@ -18,11 +18,16 @@ class Settings(BaseSettings):
     auto_create_tables: bool = True  # dev-удобство; в проде — Alembic
     seed_on_start: bool = False      # авто-сид демо-данных при первом старте (для деплоя)
 
-    # Auth (§14): короткий access + refresh; argon2.
+    # Auth (§14): короткий access (в памяти клиента) + refresh (httpOnly cookie); argon2.
     jwt_secret: str = "dev-only-change-in-production-via-env"
     jwt_alg: str = "HS256"
     access_token_expire_min: int = 30
     refresh_token_expire_days: int = 14
+
+    # Refresh-cookie (httpOnly). В проде (кросс-домен Vercel↔Railway): COOKIE_SECURE=true, COOKIE_SAMESITE=none.
+    refresh_cookie_name: str = "arkand_rt"
+    cookie_secure: bool = False
+    cookie_samesite: str = "lax"
 
     # Realtime (§12): Redis Pub/Sub; без него — in-process fallback.
     redis_url: str | None = None
@@ -41,6 +46,16 @@ class Settings(BaseSettings):
     @property
     def is_sqlite(self) -> bool:
         return self.database_url.startswith("sqlite")
+
+    @property
+    def eff_cookie_secure(self) -> bool:
+        # В проде (Postgres, HTTPS) refresh-cookie обязан быть Secure для кросс-домена.
+        return self.cookie_secure or not self.is_sqlite
+
+    @property
+    def eff_cookie_samesite(self) -> str:
+        # Кросс-домен (Vercel↔Railway) требует SameSite=None; локально — Lax.
+        return self.cookie_samesite if self.is_sqlite else "none"
 
     @property
     def sqlalchemy_url(self) -> str:

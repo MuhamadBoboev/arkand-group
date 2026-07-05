@@ -21,7 +21,7 @@ type AuthState = {
   ready: boolean;
   error: string | null;
   login: (phone: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   loadMe: () => Promise<void>;
   can: (resource: string, action: string) => boolean;
 };
@@ -36,7 +36,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const t = await api.post("/api/auth/login", { phone, password }, false);
-      tokens.set(t.access_token, t.refresh_token);
+      tokens.setAccess(t.access_token); // access — только в памяти; refresh ушёл в httpOnly cookie
       await get().loadMe();
       wsClient.connect();
     } catch (e) {
@@ -46,11 +46,8 @@ export const useAuth = create<AuthState>((set, get) => ({
     }
   },
 
+  // На старте access-токена в памяти нет — клиент тихо восстановит его через refresh-cookie (в api.get).
   loadMe: async () => {
-    if (!tokens.access()) {
-      set({ user: null, ready: true });
-      return;
-    }
     try {
       const me = await api.get<Me>("/api/auth/me");
       set({ user: me, loading: false, ready: true });
@@ -61,9 +58,26 @@ export const useAuth = create<AuthState>((set, get) => ({
     }
   },
 
-  logout: () => {
+  logout: async () => {
+    try {
+      await api.post("/api/auth/logout", undefined, false); // сервер чистит refresh-cookie
+    } catch {
+      /* игнор */
+    }
     tokens.clear();
     wsClient.close();
+    // чистим кешированные данные, чтобы после выхода ничего не оставалось
+    try {
+      const { queryClient } = await import("@/shared/api/query");
+      queryClient.clear();
+    } catch {
+      /* игнор */
+    }
+    try {
+      sessionStorage.removeItem("arkand-query-cache");
+    } catch {
+      /* игнор */
+    }
     set({ user: null });
   },
 

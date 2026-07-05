@@ -12,6 +12,7 @@ from app.api._common import paginate, serialize
 from app.core.constants import Action
 from app.core.deps import get_principal
 from app.core.errors import forbidden, not_found
+from app.core.validation import coerce_and_validate
 from app.db.base import get_db
 from app.realtime import channels
 from app.realtime.publisher import publish
@@ -57,7 +58,8 @@ def make_crud_router(*, model, resource: str, tags: list[str], business_scoped: 
     def _create(payload: dict, principal: Principal = Depends(get_principal), db: Session = Depends(get_db)):
         business_id = payload.get("business_id") if business_scoped else None
         principal.require(resource, Action.CREATE, business_id=business_id)
-        data = {k: v for k, v in payload.items() if k in writable}
+        # Валидация типов (числовые поля не принимают буквы) — §14
+        data = coerce_and_validate(model, {k: v for k, v in payload.items() if k in writable})
         if "created_by" in columns:
             data["created_by"] = principal.id
         obj = model(**data)

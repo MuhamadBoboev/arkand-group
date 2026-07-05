@@ -59,7 +59,7 @@ export default function InkassaciyaPage() {
 
   return (
     <div>
-      <PageTitle title="Инкассация" subtitle="Двусторонняя: передал ≠ подтвердил (§9.6.1)"
+      <PageTitle title="Инкассация" subtitle="Двустороннее подтверждение: передал ≠ принял"
         action={can("inkassaciya", "create") ? <Button onClick={() => { setWizard(true); setCurrent(null); setCashId(cashData?.items?.[0]?.id ?? ""); }}>+ Инкассация</Button> : undefined} />
 
       {isLoading ? <TableSkeleton /> : (
@@ -73,7 +73,7 @@ export default function InkassaciyaPage() {
           !current ? (
             <Button block loading={startMut.isPending} disabled={!cashId} onClick={() => startMut.mutate()}>Показать расчёт</Button>
           ) : (
-            <Button block loading={factMut.isPending} onClick={() => factMut.mutate()}>Передать в путь</Button>
+            <Button block loading={factMut.isPending} disabled={!(fact >= 0)} onClick={() => factMut.mutate()}>Передать в путь</Button>
           )
         }>
         {!current ? (
@@ -85,7 +85,9 @@ export default function InkassaciyaPage() {
               <span className="text-sm text-neutral-500">Расчётный остаток (справочно)</span>
               <Amount value={current.calc_amount} />
             </Card>
-            <Input label="Фактическая сумма (пересчёт)" type="number" inputMode="decimal" value={fact || ""} onChange={(e) => setFact(Number(e.target.value))} />
+            <Input label="Фактическая сумма (пересчёт)" type="number" inputMode="decimal" min={0} step="any"
+              error={fact < 0 ? "Сумма не может быть отрицательной" : undefined}
+              value={fact || ""} onChange={(e) => setFact(e.target.value === "" ? 0 : Number(e.target.value))} />
             <p className="text-xs text-neutral-500">Расхождение зафиксируется отдельной видимой операцией (недостача/излишек).</p>
           </div>
         )}
@@ -93,14 +95,16 @@ export default function InkassaciyaPage() {
 
       {/* Приём (другой пользователь) */}
       <Modal open={!!acceptInk} onClose={() => setAcceptInk(null)} title="Подтверждение приёма"
-        footer={<Button block loading={acceptMut.isPending} onClick={() => acceptMut.mutate()}>Подтвердить</Button>}>
+        footer={<Button block loading={acceptMut.isPending} disabled={!(accepted >= 0)} onClick={() => acceptMut.mutate()}>Подтвердить</Button>}>
         <div className="flex flex-col gap-3">
           <Card className="flex items-center justify-between">
             <span className="text-sm text-neutral-500">Сумма в пути</span>
             <Amount value={acceptInk?.fact_amount ?? 0} />
           </Card>
-          <Input label="Принятая сумма" type="number" inputMode="decimal" value={accepted || ""} onChange={(e) => setAccepted(Number(e.target.value))} />
-          <p className="text-xs text-neutral-500">Подтверждает получатель — другой логин, не кассир (§7.6).</p>
+          <Input label="Принятая сумма" type="number" inputMode="decimal" min={0} step="any"
+            error={accepted < 0 ? "Сумма не может быть отрицательной" : undefined}
+            value={accepted || ""} onChange={(e) => setAccepted(e.target.value === "" ? 0 : Number(e.target.value))} />
+          <p className="text-xs text-neutral-500">Подтверждает получатель — другой сотрудник, не кассир.</p>
         </div>
       </Modal>
     </div>

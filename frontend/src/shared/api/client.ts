@@ -15,18 +15,21 @@ export class ApiError extends Error {
 
 type Options = { method?: string; body?: unknown; auth?: boolean; retry?: boolean };
 
+/** Обновить access через refresh-cookie (httpOnly). Сырой fetch, чтобы не зациклить refresh. */
 async function refreshAccess(): Promise<boolean> {
-  const rt = tokens.refresh();
-  if (!rt) return false;
-  const res = await fetch(apiUrl("/api/auth/refresh"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh_token: rt }),
-  });
-  if (!res.ok) return false;
-  const data = await res.json();
-  tokens.set(data.access_token, data.refresh_token);
-  return true;
+  try {
+    const res = await fetch(apiUrl("/api/auth/refresh"), {
+      method: "POST",
+      credentials: "include", // отправляем httpOnly refresh-cookie
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    tokens.setAccess(data.access_token);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function request<T = any>(path: string, opts: Options = {}): Promise<T> {
@@ -38,10 +41,11 @@ async function request<T = any>(path: string, opts: Options = {}): Promise<T> {
   const res = await fetch(apiUrl(path), {
     method,
     headers,
+    credentials: "include", // cookie для refresh-сессии
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  // Авто-refresh при истёкшем access (§14 — короткий access + refresh)
+  // Истёк/отсутствует access → тихо обновляем через refresh-cookie и повторяем один раз
   if (res.status === 401 && auth && retry && (await refreshAccess())) {
     return request<T>(path, { ...opts, retry: false });
   }
@@ -63,4 +67,5 @@ export const api = {
   post: <T = any>(path: string, body?: unknown, auth = true) => request<T>(path, { method: "POST", body, auth }),
   put: <T = any>(path: string, body?: unknown) => request<T>(path, { method: "PUT", body }),
   del: <T = any>(path: string) => request<T>(path, { method: "DELETE" }),
+  refresh: refreshAccess,
 };

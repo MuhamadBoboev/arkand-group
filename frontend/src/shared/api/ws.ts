@@ -22,15 +22,16 @@ class WsClient {
   connect(): void {
     if (this.ws || !tokens.access()) return;
     this.closedByUser = false;
-    const url = `${wsUrl()}?token=${encodeURIComponent(tokens.access()!)}`;
-    const ws = new WebSocket(url);
+    const ws = new WebSocket(wsUrl()); // без токена в URL — авторизуемся первым сообщением
     this.ws = ws;
 
     ws.onopen = () => {
       this.connected = true;
       this.backoff = 1000;
+      // Авторизация JWT первым сообщением (токен не попадает в URL/логи)
+      this.send({ type: "auth", token: tokens.access() });
       if (this.channels.size) this.send({ type: "subscribe", channels: [...this.channels] }); // ресинк подписок
-      // После РЕКОННЕКТА (не первого коннекта) — ресинк кешей: события за время обрыва потеряны (§12)
+      // После реконнекта (не первого коннекта) — ресинк кешей: события за время обрыва потеряны
       if (this.hasConnectedBefore) this.reconnectHandlers.forEach((h) => h());
       this.hasConnectedBefore = true;
     };

@@ -11,6 +11,7 @@ from app.api._common import paginate, serialize
 from app.core.constants import Action, OrderStatus, Resource, StockStatus
 from app.core.deps import get_principal
 from app.core.errors import conflict, not_found
+from app.core.validation import coerce_and_validate
 from app.db.base import get_db
 from app.db.models import Order, Recipe, ShippingTicket, WarehouseMovement
 from app.realtime import channels
@@ -47,14 +48,16 @@ def make_orders_router(business_id: str) -> APIRouter:
     @r.post("", status_code=201)
     def _create(payload: dict, principal: Principal = Depends(get_principal), db: Session = Depends(get_db)):
         principal.require(Resource.ORDER, Action.CREATE, business_id=business_id)
+        # Валидация чисел (объём/сумма не принимают буквы) — §14
+        nums = coerce_and_validate(Order, {k: payload.get(k) for k in ("volume", "amount") if payload.get(k) is not None})
         recipe = _freeze_recipe(db, business_id, payload.get("mark"), payload.get("recipe_id"))
         order = Order(
             business_id=business_id,
             counterparty_id=payload.get("counterparty_id"),
             title=payload.get("title"),
             mark=payload.get("mark"),
-            volume=payload.get("volume"),
-            amount=payload.get("amount"),
+            volume=nums.get("volume"),
+            amount=nums.get("amount"),
             payment_status=payload.get("payment_status"),
             status=OrderStatus.NEW,
             payload_frozen={"recipe": recipe.frozen_json} if recipe else payload.get("payload_frozen"),  # заморозка (§7.3)
@@ -64,7 +67,7 @@ def make_orders_router(business_id: str) -> APIRouter:
         db.flush()
 
         # Автосписание сырья по рецептуре (§9.3): склад → в производство
-        volume = Decimal(str(payload.get("volume") or 0))
+        volume = Decimal(str(nums.get("volume") or 0))
         if recipe and volume > 0 and isinstance(recipe.frozen_json, dict):
             for comp in recipe.frozen_json.get("components", []):
                 nid = comp.get("nomenclature_id")
@@ -143,10 +146,11 @@ def make_shipping_router(business_id: str) -> APIRouter:
     def _create(payload: dict, principal: Principal = Depends(get_principal), db: Session = Depends(get_db)):
         # Отгрузка ≠ приём денег: shipped_by фиксируется, роль оператора не имеет прав на кассу (§7.6)
         principal.require(Resource.SHIPPING, Action.CREATE, business_id=business_id)
+        nums = coerce_and_validate(ShippingTicket, {"qty": payload.get("qty")} if payload.get("qty") is not None else {})
         ticket = ShippingTicket(
             order_id=payload.get("order_id"), business_id=business_id, vehicle=payload.get("vehicle"),
             driver_user_id=payload.get("driver_user_id"), nomenclature_id=payload.get("nomenclature_id"),
-            qty=payload.get("qty"), shipped_by=principal.id, created_by=principal.id,
+            qty=nums.get("qty"), shipped_by=principal.id, created_by=principal.id,
         )
         db.add(ticket)
         db.flush()

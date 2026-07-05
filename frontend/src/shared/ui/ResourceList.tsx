@@ -15,6 +15,7 @@ export interface Field {
   type?: "text" | "number" | "date" | "select";
   options?: { value: string; label: string }[];
   required?: boolean;
+  min?: number;
   placeholder?: string;
 }
 
@@ -39,15 +40,38 @@ export function ResourceList<T>({ queryKey, listPath, columns, keyField, cardTit
   const { data, isLoading } = useList<T>(queryKey, listPath);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const mut = useApiMutation({
     mutationFn: (body: any) => api.post(create!.path, body),
     invalidate: [queryKey],
     successMsg: "Создано",
-    onSuccess: () => { setOpen(false); setForm({}); },
+    onSuccess: () => { setOpen(false); setForm({}); setErrors({}); },
   });
 
+  const validate = (): boolean => {
+    const e: Record<string, string> = {};
+    for (const f of create?.fields ?? []) {
+      const v = form[f.name];
+      const empty = v === undefined || v === null || v === "";
+      if (f.required !== false && empty) {
+        e[f.name] = "Обязательное поле";
+        continue;
+      }
+      if (f.type === "number" && !empty) {
+        const n = Number(v);
+        if (!Number.isFinite(n)) e[f.name] = "Введите число";
+        else if (n < 0) e[f.name] = "Число не может быть отрицательным";
+        else if (n === 0 && f.required !== false) e[f.name] = "Введите значение больше 0";
+        else if (f.min !== undefined && n < f.min) e[f.name] = `Минимум ${f.min}`;
+      }
+    }
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
   const submit = () => {
+    if (!validate()) return;
     const body = create?.transform ? create.transform(form) : form;
     mut.mutate(body);
   };
@@ -91,6 +115,7 @@ export function ResourceList<T>({ queryKey, listPath, columns, keyField, cardTit
                   label={f.label}
                   placeholder={f.placeholder ?? "—"}
                   options={f.options ?? []}
+                  error={errors[f.name]}
                   value={form[f.name] ?? ""}
                   onChange={(e) => setForm((s) => ({ ...s, [f.name]: e.target.value }))}
                 />
@@ -100,11 +125,15 @@ export function ResourceList<T>({ queryKey, listPath, columns, keyField, cardTit
                   label={f.label}
                   type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
                   inputMode={f.type === "number" ? "decimal" : undefined}
+                  step={f.type === "number" ? "any" : undefined}
+                  min={f.type === "number" ? 0 : undefined}
                   placeholder={f.placeholder}
+                  error={errors[f.name]}
                   value={form[f.name] ?? ""}
-                  onChange={(e) =>
-                    setForm((s) => ({ ...s, [f.name]: f.type === "number" ? Number(e.target.value) : e.target.value }))
-                  }
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setForm((s) => ({ ...s, [f.name]: f.type === "number" ? (raw === "" ? "" : Number(raw)) : raw }));
+                  }}
                 />
               ),
             )}

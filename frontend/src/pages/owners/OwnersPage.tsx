@@ -14,13 +14,13 @@ export default function OwnersPage() {
     ...(isTop ? [{ key: "analytics", label: "Аналитика" }] : []),
     ...(can("approval", "approve") || isOwner ? [{ key: "approvals", label: "Согласования" }] : []),
     ...(isTop ? [{ key: "employees", label: "Сотрудники" }] : []),
-    ...(isOwner ? [{ key: "tasks", label: "Задачи" }] : []),  // Довуд ставит задачи в своей зоне (§8.2)
+    ...(isOwner ? [{ key: "tasks", label: "Задачи" }] : []),
     ...(isTop ? [{ key: "calendar", label: "Календарь" }] : []),
   ];
 
   return (
     <div>
-      <PageTitle title="Надстройка владельцев" subtitle="Согласования троих, сотрудники, аналитика, календарь (§9.7)" />
+      <PageTitle title="Управление холдингом" subtitle="Согласования, сотрудники, аналитика, календарь" />
       <div className="mb-4"><Tabs value={tab} onChange={setTab} items={items} /></div>
 
       {tab === "analytics" && isTop && <AnalyticsTab />}

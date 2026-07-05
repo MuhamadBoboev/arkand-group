@@ -1,16 +1,13 @@
-// Хранилище JWT (access+refresh) в localStorage. Общий источник для api-клиента и auth-стора.
-const A = "arkand_access";
-const R = "arkand_refresh";
+// Access-токен хранится ТОЛЬКО в памяти (не в localStorage/sessionStorage — недоступен из DevTools/XSS-дампов).
+// Refresh-токен живёт в httpOnly Secure cookie и недоступен JS вовсе.
+let accessToken: string | null = null;
 
 export const tokens = {
-  access: (): string | null => localStorage.getItem(A),
-  refresh: (): string | null => localStorage.getItem(R),
-  set: (access: string, refresh: string): void => {
-    localStorage.setItem(A, access);
-    localStorage.setItem(R, refresh);
+  access: (): string | null => accessToken,
+  setAccess: (t: string | null): void => {
+    accessToken = t;
   },
   clear: (): void => {
-    localStorage.removeItem(A);
-    localStorage.removeItem(R);
+    accessToken = null;
   },
 };

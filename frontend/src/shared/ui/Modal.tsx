@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect } from "react";
+import { LuX } from "react-icons/lu";
 import { cn } from "@/shared/lib/cn";
 
 interface Props {
@@ -42,7 +43,7 @@ export function Modal({ open, onClose, title, children, footer }: Props) {
           <div className="sticky top-0 flex items-center justify-between border-b border-neutral-100 bg-white px-4 py-3">
             <h3 className="text-base font-semibold text-ink">{title}</h3>
             <button onClick={onClose} className="grid h-11 w-11 place-items-center rounded-md text-neutral-500 hover:bg-neutral-100" aria-label="Закрыть">
-              ✕
+              <LuX size={20} />
             </button>
           </div>
         )}

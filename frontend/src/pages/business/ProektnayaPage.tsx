@@ -12,7 +12,7 @@ export default function ProektnayaPage() {
 
   return (
     <div>
-      <PageTitle title="Проектная компания" subtitle="Клиенты, договоры 50/30/20, проекты, авторский надзор (§9.2)" />
+      <PageTitle title="Проектная компания" subtitle="Клиенты, договоры, проекты и авторский надзор" />
       <div className="mb-4">
         <Tabs value={tab} onChange={setTab} items={[
           { key: "clients", label: "Клиенты" }, { key: "contracts", label: "Договоры" },
@@ -24,7 +24,7 @@ export default function ProektnayaPage() {
         <ResourceList queryKey={["proektnaya", "clients"]} listPath="/api/proektnaya/clients" keyField={(r: any) => r.id}
           cardTitle={(r: any) => r.full_name}
           columns={[{ key: "full_name", header: "Клиент" }, { key: "phone", header: "Телефон" }, { key: "registered", header: "Регистрация", render: (r: any) => (r.registered ? "да" : "нет") }]}
-          create={canEdit ? { path: "/api/proektnaya/clients", title: "Новый клиент (регистрация обязательна §9.2)", buttonLabel: "Клиент", fields: [{ name: "full_name", label: "ФИО" }, { name: "phone", label: "Телефон" }] } : undefined} />
+          create={canEdit ? { path: "/api/proektnaya/clients", title: "Новый клиент", buttonLabel: "Клиент", fields: [{ name: "full_name", label: "ФИО" }, { name: "phone", label: "Телефон" }] } : undefined} />
       )}
 
       {tab === "contracts" && (

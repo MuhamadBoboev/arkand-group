@@ -23,6 +23,12 @@ class TokenOut(BaseModel):
     token_type: str = "bearer"
 
 
+class AccessTokenOut(BaseModel):
+    """Ответ логина/refresh: только access-токен (refresh уходит в httpOnly cookie)."""
+    access_token: str
+    token_type: str = "bearer"
+
+
 class PermissionOut(BaseModel):
     resource: str
     action: str

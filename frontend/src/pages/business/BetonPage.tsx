@@ -14,7 +14,7 @@ export default function BetonPage() {
 
   return (
     <div>
-      <PageTitle title="Бетонный завод" subtitle="Заказы (заморозка рецептуры, автосписание §9.3), отгрузка ≠ касса" />
+      <PageTitle title="Бетонный завод" subtitle="Заказы, рецептуры, отгрузка и контроль качества" />
       <div className="mb-4">
         <Tabs value={tab} onChange={setTab} items={[
           { key: "orders", label: "Заказы" }, { key: "recipes", label: "Рецептуры" }, { key: "shipping", label: "Отгрузка" }, { key: "stock", label: "Склад" },
@@ -56,7 +56,7 @@ export default function BetonPage() {
           cardTitle={(r: any) => `Талон ${r.vehicle ?? ""}`}
           columns={[{ key: "vehicle", header: "Машина" }, { key: "qty", header: "Кол-во", align: "right" }, { key: "status", header: "Статус", render: (r: any) => <StatusChip status={r.status} /> }]}
           create={can("shipping", "create") ? {
-            path: "/api/beton/shipping", title: "Талон отгрузки (≠ приём денег §7.6)", buttonLabel: "Отгрузка",
+            path: "/api/beton/shipping", title: "Талон отгрузки", buttonLabel: "Отгрузка",
             fields: [{ name: "vehicle", label: "Машина (номер)" }, { name: "qty", label: "Количество, м³", type: "number" }],
           } : undefined} />
       )}

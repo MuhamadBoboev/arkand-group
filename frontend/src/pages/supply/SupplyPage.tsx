@@ -14,7 +14,7 @@ export default function SupplyPage() {
 
   return (
     <div>
-      <PageTitle title="Снабжение" subtitle="Заявки, закупки (лимит → согласование троих §8.2), оприходование" />
+      <PageTitle title="Снабжение" subtitle="Заявки, закупки и оприходование на склад" />
       <div className="mb-4">
         <Tabs
           value={tab}
@@ -108,18 +108,20 @@ function ReceiveForm({ bizOptions, canReceive }: { bizOptions: { value: string; 
       )}
       <Card>
         <p className="text-sm text-neutral-500">
-          Оприходование увеличивает остаток склада бизнеса и мгновенно синхронизируется у всех отделов (§6.3).
-          Межбизнес-передача создаёт долг (§9.5).
+          Оприходование увеличивает остаток склада бизнеса и мгновенно синхронизируется у всех отделов.
+          Передача между бизнесами создаёт долг.
         </p>
       </Card>
 
       <Modal open={open} onClose={() => setOpen(false)} title="Оприходование на склад"
-        footer={<Button block loading={mut.isPending} onClick={() => mut.mutate(f)}>Оприходовать</Button>}>
+        footer={<Button block loading={mut.isPending} disabled={!f.business_id || !f.nomenclature_id || !(f.qty > 0)} onClick={() => mut.mutate(f)}>Оприходовать</Button>}>
         <div className="flex flex-col gap-3">
           <Select label="Склад бизнеса" value={f.business_id} onChange={(e) => setF((s: any) => ({ ...s, business_id: e.target.value }))} placeholder="—" options={bizOptions} />
           <Select label="Номенклатура" value={f.nomenclature_id} onChange={(e) => setF((s: any) => ({ ...s, nomenclature_id: e.target.value }))} placeholder="—"
             options={(nom?.items ?? []).map((n: any) => ({ value: n.id, label: n.name }))} />
-          <Input label="Количество" type="number" inputMode="decimal" value={f.qty || ""} onChange={(e) => setF((s: any) => ({ ...s, qty: Number(e.target.value) }))} />
+          <Input label="Количество" type="number" inputMode="decimal" min={0} step="any"
+            error={f.qty < 0 ? "Количество не может быть отрицательным" : undefined}
+            value={f.qty || ""} onChange={(e) => setF((s: any) => ({ ...s, qty: e.target.value === "" ? 0 : Number(e.target.value) }))} />
           <Select label="Источник (для межбизнес-передачи → долг)" value={f.source_business} onChange={(e) => setF((s: any) => ({ ...s, source_business: e.target.value }))} placeholder="— (внешний поставщик)" options={bizOptions} />
         </div>
       </Modal>

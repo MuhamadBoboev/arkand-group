@@ -21,7 +21,7 @@ export default function DashboardPage() {
 
       {isOwnerTop && (
         <section className="mb-6">
-          <h2 className="mb-2 text-sm font-semibold text-neutral-500">Консолидация (§9.7)</h2>
+          <h2 className="mb-2 text-sm font-semibold text-neutral-500">Консолидация по холдингу</h2>
           {isLoading ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Skeleton className="h-24" /><Skeleton className="h-24" /><Skeleton className="h-24" />

@@ -26,7 +26,7 @@ export default function FinancePage() {
   const [reverseId, setReverseId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
 
-  // Оптимистичное создание проводки (§6.2): мгновенно в UI → бэк → WS-broadcast; при ошибке откат
+  // Оптимистичное создание проводки: мгновенно в UI, при ошибке откат
   const createMut = useMutation({
     mutationFn: (v: typeof form) => api.post("/api/finance/movements", { cash_id: activeCash, ...v }),
     onMutate: async (v) => {
@@ -79,7 +79,7 @@ export default function FinancePage() {
     <div>
       <PageTitle
         title="Финансы"
-        subtitle="Кассы, проводки, сторно (append-only §7.1)"
+        subtitle="Кассы, проводки и сторнирование операций"
         action={can("cash", "create") && activeCash ? <Button onClick={() => setOpen(true)}>+ Проводка</Button> : undefined}
       />
 
@@ -106,19 +106,21 @@ export default function FinancePage() {
 
       {/* Модалка новой проводки */}
       <Modal open={open} onClose={() => setOpen(false)} title="Новая проводка"
-        footer={<Button block loading={createMut.isPending} onClick={() => createMut.mutate(form)}>Провести</Button>}>
+        footer={<Button block loading={createMut.isPending} disabled={!(form.amount > 0)} onClick={() => createMut.mutate(form)}>Провести</Button>}>
         <div className="flex flex-col gap-3">
           <Select label="Тип" value={form.kind} onChange={(e) => setForm((s) => ({ ...s, kind: e.target.value }))}
             options={[{ value: "income", label: "Доход (+)" }, { value: "expense", label: "Расход (−)" }]} />
-          <Input label="Сумма" type="number" inputMode="decimal" value={form.amount || ""} onChange={(e) => setForm((s) => ({ ...s, amount: Number(e.target.value) }))} />
+          <Input label="Сумма" type="number" inputMode="decimal" min={0} step="any"
+            error={form.amount < 0 ? "Сумма не может быть отрицательной" : undefined}
+            value={form.amount || ""} onChange={(e) => setForm((s) => ({ ...s, amount: e.target.value === "" ? 0 : Number(e.target.value) }))} />
           <Input label="Статья" value={form.article} onChange={(e) => setForm((s) => ({ ...s, article: e.target.value }))} placeholder="Напр. Продажа" />
         </div>
       </Modal>
 
       {/* Модалка сторно */}
       <Modal open={!!reverseId} onClose={() => setReverseId(null)} title="Сторно проводки"
-        footer={<Button block variant="danger" loading={reverseMut.isPending} onClick={() => reverseId && reverseMut.mutate(reverseId)}>Провести сторно</Button>}>
-        <p className="mb-3 text-sm text-neutral-500">Проведённую операцию нельзя изменить — только обратное видимое сторно (§7.1).</p>
+        footer={<Button block variant="danger" loading={reverseMut.isPending} disabled={!reason.trim()} onClick={() => reverseId && reverseMut.mutate(reverseId)}>Провести сторно</Button>}>
+        <p className="mb-3 text-sm text-neutral-500">Проведённую операцию нельзя изменить — только обратное видимое сторно.</p>
         <Input label="Причина" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Причина исправления" />
       </Modal>
     </div>
