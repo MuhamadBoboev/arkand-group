@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     # БД: Postgres на Railway; SQLite — локальная разработка/тесты (§2).
     database_url: str = "sqlite:///./arkand.db"
     auto_create_tables: bool = True  # dev-удобство; в проде — Alembic
+    seed_on_start: bool = False      # авто-сид демо-данных при первом старте (для деплоя)
 
     # Auth (§14): короткий access + refresh; argon2.
     jwt_secret: str = "dev-only-change-in-production-via-env"
@@ -40,6 +41,16 @@ class Settings(BaseSettings):
     @property
     def is_sqlite(self) -> bool:
         return self.database_url.startswith("sqlite")
+
+    @property
+    def sqlalchemy_url(self) -> str:
+        """Нормализованный URL для SQLAlchemy (Railway отдаёт postgres:// — старая схема)."""
+        url = self.database_url
+        if url.startswith("postgres://"):
+            url = "postgresql+psycopg2://" + url[len("postgres://"):]
+        elif url.startswith("postgresql://") and "+psycopg2" not in url:
+            url = "postgresql+psycopg2://" + url[len("postgresql://"):]
+        return url
 
 
 @lru_cache

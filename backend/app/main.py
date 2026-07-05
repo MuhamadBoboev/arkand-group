@@ -21,6 +21,14 @@ async def lifespan(app: FastAPI):
     # dev-удобство: создать таблицы (в проде — Alembic, §2)
     if settings.auto_create_tables:
         Base.metadata.create_all(bind=engine)
+    # авто-сид демо-данных при первом старте (для деплоя) — идемпотентно
+    if settings.seed_on_start:
+        try:
+            from app.seed import run as seed_run
+
+            seed_run()
+        except Exception as exc:  # сид не должен ронять старт
+            print("seed_on_start failed:", exc)
     await init_publisher(asyncio.get_running_loop())
     yield
     await shutdown_publisher()
