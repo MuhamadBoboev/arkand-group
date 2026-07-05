@@ -10,7 +10,7 @@ from decimal import Decimal
 from app.core.constants import Business, MoneyKind, MoneyStatus, OwnerType, StockStatus
 from app.core.permissions import ROLE_DEFS, all_permission_tuples
 from app.core.security import hash_password
-from app.db.base import Base, SessionLocal, engine
+from app.db.base import Base, SessionLocal, engine, now_utc
 from app.db.models import (
     BusinessEntity,
     CashRegister,
@@ -200,5 +200,50 @@ def run() -> None:
         db.close()
 
 
+# (phone, ФИО, role_name, owner_type, business_id, salary) — для идемпотентной дозаливки
+_DEMO_USERS = [
+    ("+992900000001", "Сохиб", "owner_full", OwnerType.SOHIB, None, None),
+    ("+992900000002", "Ифтихор", "owner_full", OwnerType.IFTIKHOR, None, None),
+    ("+992900000003", "Довуд", "owner_project", OwnerType.DOVUD, Business.PROEKTNAYA, None),
+    ("+992900000010", "Кассир застройщика", "cashier", None, Business.ZASTROYSHCHIK, "4000"),
+    ("+992900000011", "Снабженец", "supply_team", None, Business.SUPPLY, "5000"),
+    ("+992900000012", "Ревизор", "auditor", None, Business.AUDIT, "6000"),
+    ("+992900000013", "Главный бухгалтер", "chief_accountant", None, Business.FINANCE, "9000"),
+    ("+992900000014", "Оператор бетонного завода", "operator", None, Business.BETON, "4500"),
+    ("+992900000015", "Директор (приём инкассации)", "cash_receiver", None, Business.FINANCE, "12000"),
+    ("+992900000016", "Менеджер по продажам", "sales_manager", None, Business.ZASTROYSHCHIK, "4000"),
+    ("+992900000017", "Архитектор", "architect", None, Business.PROEKTNAYA, "7000"),
+    ("+992900000018", "Прораб", "foreman", None, Business.ZASTROYSHCHIK, "5000"),
+]
+
+
+def ensure_demo_users() -> None:
+    """Идемпотентно дозаливает недостающих демо-пользователей (роли/бизнесы уже засеяны run())."""
+    db = SessionLocal()
+    try:
+        created = 0
+        for phone, name, role_name, owner_type, business_id, salary in _DEMO_USERS:
+            if db.query(User).filter(User.phone == phone).first():
+                continue
+            role = db.query(Role).filter(Role.name == role_name).first()
+            if role is None:
+                continue
+            u = User(full_name=name, phone=phone, password_hash=hash_password(PWD), is_active=True)
+            db.add(u)
+            db.flush()
+            db.add(UserRole(user_id=u.id, role_id=role.id))
+            if owner_type:
+                db.add(Owner(user_id=u.id, owner_type=owner_type))
+            db.add(Employee(user_id=u.id, business_id=business_id, position=name,
+                            salary=Decimal(salary) if salary else None, hired_at=now_utc().date()))
+            created += 1
+        db.commit()
+        if created:
+            print(f"[OK] Ensured {created} demo user(s).")
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
     run()
+    ensure_demo_users()
